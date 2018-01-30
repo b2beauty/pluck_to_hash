@@ -11,6 +11,7 @@ module PluckToHash
         # http://stackoverflow.com/questions/25331778/getting-typed-results-from-activerecord-raw-sql#answer-30948357
         @type_map ||= PG::BasicTypeMapForResults.new(connection.raw_connection)
         sql = select(*keys).to_sql
+        set_time_zone!(connection)
         results = connection.execute(sql)
         results.type_map = @type_map
         results.map{|row| block_given ? yield(row.with_indifferent_access) : row.with_indifferent_access}
@@ -59,6 +60,14 @@ module PluckToHash
 
     def database_adapter
       @postgres ||= ActiveRecord::Base.connection.adapter_name.downcase.to_sym
+    end
+
+    def set_time_zone!(connection)
+      return unless defined?(Time.zone)
+      # Time.zone.utc_offset does not
+      # work with Daylight saving time
+      time_zone = Time.zone.now.utc_offset / 1.hour
+      connection.execute("SET TIME ZONE #{time_zone}")
     end
 
     alias_method :pluck_h, :pluck_to_hash
